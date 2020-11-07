@@ -1,19 +1,38 @@
 // index.js
 // This is the main entry point of our application
 
+/**
+ * External Dependencies Etart
+ */
+// ExpressJS import
+const express = require('express');
+const app = express();
+
+// Apollo Server Import
+const { ApolloServer } = require('apollo-server-express');
+
 // MongoDB imports
 require('dotenv').config();
+/**
+ * External Dependencies End
+ */
+
+/**
+ * Local Modules Start
+ */
 const db = require('./db');
 
 // models module import
 const models = require('./models');
 
-// GraphQL import
-const { ApolloServer, gql } = require('apollo-server-express');
+// Import schema definitions from src/schema.js
+const typeDefs = require('./schema');
 
-// ExpressJS import
-const express = require('express');
-const app = express();
+// Import schema resolvers from src/resolvers
+const resolvers = require('./resolvers')
+/**
+ * Local Modules End
+ */
 
 // Variable port selection
 const port = process.env.PORT || 4000
@@ -24,69 +43,22 @@ const DB_HOST = process.env.DB_HOST
 // Connect to database at host
 db.connect(DB_HOST);
 
-// GraphQL schema definitions
-const typeDefs = gql`
-    type Query {
-        hello: String!
-        notes: [Note!]!
-        note(id: ID!): Note!
-    }
-
-    type Note {
-        id: ID!
-        content: String!
-        author: String!   
-    }
-
-    type Mutation {
-        newNote(content: String!): Note!
-    }
-`;
-
-// GraphQL resolver functions
-const resolvers = {
-    Query: {
-        hello: () => 'Hello world!',
-        notes: async () => {
-            return await models.Note.find();
-        },
-        note: async (parent, args) => {
-            // In-memory find of a specific note
-            // return notes.find(note => note.id === args.id);
-
-            // Async find of a specific note in MongoDB
-            return await models.Note.findById(args.id);
-        }
-    },
-    Mutation: {
-        newNote: async (parent, args) => {
-            // In-memory mutation of noteValues
-            // let noteValue = {
-            //     id: String(notes.length +1),
-            //     content: args.content,
-            //     author: 'Adam Scott'
-            // };
-            // notes.push(noteValue);
-            // return noteValue;
-
-            // Async mutation of noteValues in MongoDB
-            return await models.Note.create({
-                content: args.content,
-                author: 'Adam Scott'
-            });
-        }
-    }   
-};
-
 // Apollo server setup
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer({ 
+    typeDefs, 
+    resolvers,
+    context: () => {
+        // Add the db models to the context
+        return { models };
+    }
+});
 
-// Temporary GraphQL schema declarations
-let notes = [
-    { id: '1', content: 'this is a note', author: 'Adam Scott' },
-    { id: '2', content: 'this is another note', author: 'Harlow Everly' },
-    { id: '3', content: 'this is yet another note', author: 'Riley Harrison' }
-];
+// // Temporary GraphQL schema declarations
+// let notes = [
+//     { id: '1', content: 'this is a note', author: 'Adam Scott' },
+//     { id: '2', content: 'this is another note', author: 'Harlow Everly' },
+//     { id: '3', content: 'this is yet another note', author: 'Riley Harrison' }
+// ];
 
 // Apply GraphQL to middleware on /api path
 server.applyMiddleware({ app, path: '/api' });
